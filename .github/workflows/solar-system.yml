@@ -29,3 +29,9 @@ jobs:
         
       - name: Unit Testing
         run: npm test
+
+      - name: Archive test results
+        uses: actions/upload-artifact@v7
+        with: 
+          name: Mocha-Test-Result
+          path: test-results.xml  #this is the name of the output file that the unit testing produces. As the output is in root, just the name of file suffices
