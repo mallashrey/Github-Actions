@@ -112,7 +112,7 @@ jobs:
         with: 
           context: .                         # this is the path to the docker file. In our case its in the root dir
           push: false
-          tag: ${{ env.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}  
+          tags: ${{ env.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}  
           # The tag works like the image’s exact name/identifier. For example, GitHub may convert it to: mallashrey/solar-system:a8f52c9
       
 
