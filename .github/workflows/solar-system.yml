@@ -102,7 +102,38 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Dockerhub login 
-        uses: docker/login-action@v4
+        uses: docker/login-action@v4     # https://github.com/marketplace/actions/docker-login
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Docker Build for Testing
+        uses: docker/build-push-action@v7   # https://github.com/marketplace/actions/build-and-push-docker-images
+        with: 
+          context: .                         # this is the path to the docker file. In our case its in the root dir
+          push: false
+          tag: ${{ env.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}  
+          # The tag works like the image’s exact name/identifier. For example, GitHub may convert it to: mallashrey/solar-system:a8f52c9
+      
+
+      - name: Docker Image Testing
+        # docker is already installed in runners so this lists docker images, runs a docker container and names it solar-system-app
+        # -d runs in detached mode. -e passes the environment variables needed for the app
+        # run the image built above using the same tag - tag: ${{ env.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+        # get the IP address with the export IP command below
+        # in this case the IP is just for demo purpose and we are not making use of it as the application is running on localhost
+        # we use wget. the app uses /live endpoint.
+        run: |
+          docker images                                     
+          docker run --name solar-system-app -d \
+            -p 3000:3000 \
+            -e MONGO_URI=$MONGO_URI \
+            -e MONGO_USERNAME=$MONGO_USERNAME \
+            -e MONGO_PASSWORD=$MONGO_PASSWORD \
+            ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+
+          export IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' solar-system-app)
+          echo $IP
+
+          echo Testing Image URL using wget
+          wget -q -O - 127.0.0.1:3000/live | grep live
