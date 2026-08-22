@@ -7,7 +7,7 @@ on:
     - main
     - 'feature/*'
 env:
-  MONGO_URI: "mongodb+srv://supercluster.d83jj.mongodb.net/superData"
+  MONGO_URI: "mongodb+srv://supercluster.d83jj.mongodb.net/superData"  #this is to pass the env to the apptest.js during unit testing job as that job calls apptest.js which has a field that passes on the env variables.
   MONGO_USERNAME: ${{ vars.MONGO_USERNAME }}
   MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
 
@@ -15,7 +15,7 @@ jobs:
   unit-testing:
     name: Unit Testing
     strategy:
-      matrix:
+      matrix:                                              # use of matrix
         nodejs_version: [18, 19, 20]
         operating_system: [ubuntu-latest, macos-latest]
         exclude:
@@ -26,10 +26,21 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v7
       
-      - name: setup NodeJS
+      - name: setup NodeJS                                   # installs nodejs
         uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.nodejs_version }}
+      
+       # this step is to avoid having to install the dependecies everytime during NPM install
+      - name: Cache NPM dependencies
+        uses: actions/cache@v4
+        with:
+           # all dependencies are stored in the node_modules folder in our case so path is node_modules
+          path: node_modules
+          # need to create a unique key. this creates sth like Linux-node-modules-a84cf923... where the "a84cf923" part comes from the package-lock.json file
+          # Everytime the dependecies change,developers will update the package-lock.json file and once the package-lock.json changes a new cache is created.
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+
 
       - name: Install Dependencies
         run: npm install
@@ -37,8 +48,43 @@ jobs:
       - name: Unit Testing
         run: npm test
 
-      - name: Archive test results
+      - name: Archive test results                                # use of archive
+        if: always()
         uses: actions/upload-artifact@v7
         with: 
           name: Mocha-Test-Result
           path: test-results.xml  #this is the name of the output file that the unit testing produces. As the output is in root, just the name of file suffices
+  code-coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup NodeJS Version - 18
+        uses: actions/setup-node@v7
+        with:
+          node-version: 18
+      
+      - name: Cache NPM dependencies
+        uses: actions/cache@v4
+        with:
+           # all dependencies are stored in the node_modules folder in our case so path is node_modules
+          path: node_modules
+          # need to create a unique key. this creates sth like Linux-node-modules-a84cf923... where the "a84cf923" part comes from the package-lock.json file
+          # Everytime the dependecies change,developers will update the package-lock.json file and once the package-lock.json changes a new cache is created.
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Check Code Coverage
+        run: npm run coverage
+        continue-on-error: true   #continues to the archive test result step even if the code coverage fails the defined threshold
+
+      - name: Archive test results
+        uses: actions/upload-artifact@v7
+        with: 
+          name: Code-Coverage-Result
+          path: coverage
+          retention-days: 5 
