@@ -109,8 +109,21 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+        
+
+
+      # Github Packages Registry -> Container Registry Guide -> https://docs.github.com/en/enterprise-cloud@latest/packages/working-with-a-github-packages-registry/working-with-the-container-registry
+      # use github token fror authentication. details in the link above under authentication.
+      # at the start of workflows, github automatically creates the GITHUB_TOKEN
+      - name: GHCR Login
+        uses: docker/login-action@v2.2.0  # https://github.com/marketplace/actions/docker-login
+        with:
+          registry: ghcr.io                # by default this action always points to the docker registry, so need registry field and specify ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
         # just test Docker image, dont push to dockerhub yet. this step is needed to give a tag to the local docker image file to load onto the next step.
-        # push is set to false
+        # push is set to false 
       - name: Docker Build for Testing
         uses: docker/build-push-action@v7   # https://github.com/marketplace/actions/build-and-push-docker-images
         with: 
@@ -144,12 +157,14 @@ jobs:
           wget -q -O - 127.0.0.1:3000/live | grep live
 
         
-        # actually push the docker image now to docker hub. Push is true. Copied same steps from "Docker build for Testing" step
-      - name: Docker Push
+        # actually push the docker image now to docker hub and container registry. Push is true. Copied same steps from "Docker build for Testing" step
+      - name: Push to docker and container registry
         uses: docker/build-push-action@v7   # https://github.com/marketplace/actions/build-and-push-docker-images
         with: 
           context: .                         # this is the path to the docker file. In our case its in the root dir
           push: true
-          tags: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}  
-          # The tag works like the image’s exact name/identifier. For example, GitHub may convert it to: mallashrey/solar-system:a8f52c9
+          tags: |
+            ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}   # using the tag as the docker image identifier
+            ghcr.io/${{ github.repository_owner }}/solar-system:${{github.sha}}
+
           
