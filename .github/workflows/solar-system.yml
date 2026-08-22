@@ -98,15 +98,19 @@ jobs:
     needs: [unit-testing, code-coverage]  # needs to have both the previous jobs to have passed successfully
     runs-on: ubuntu-latest
     steps:
+      #checkout current Repo
       - name: Checkout Repo
         uses: actions/checkout@v7
 
+        # login to Dockerhub 
       - name: Dockerhub login 
         uses: docker/login-action@v4     # https://github.com/marketplace/actions/docker-login
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+        # just test Docker image, dont push to dockerhub yet. this step is needed to give a tag to the local docker image file to load onto the next step.
+        # push is set to false
       - name: Docker Build for Testing
         uses: docker/build-push-action@v7   # https://github.com/marketplace/actions/build-and-push-docker-images
         with: 
@@ -115,7 +119,8 @@ jobs:
           tags: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}  
           # The tag works like the image’s exact name/identifier. For example, GitHub may convert it to: mallashrey/solar-system:a8f52c9
       
-
+        
+        # Docker image testing
       - name: Docker Image Testing
         # docker is already installed in runners so this lists docker images, runs a docker container and names it solar-system-app
         # -d runs in detached mode. -e passes the environment variables needed for the app
@@ -137,3 +142,14 @@ jobs:
 
           echo Testing Image URL using wget
           wget -q -O - 127.0.0.1:3000/live | grep live
+
+        
+        # actually push the docker image now to docker hub. Push is true. Copied same steps from "Docker build for Testing" step
+      - name: Docker Push
+        uses: docker/build-push-action@v7   # https://github.com/marketplace/actions/build-and-push-docker-images
+        with: 
+          context: .                         # this is the path to the docker file. In our case its in the root dir
+          push: true
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}  
+          # The tag works like the image’s exact name/identifier. For example, GitHub may convert it to: mallashrey/solar-system:a8f52c9
+          
