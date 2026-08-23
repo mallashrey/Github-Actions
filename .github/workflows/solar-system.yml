@@ -14,6 +14,24 @@ env:
 jobs:
   unit-testing:
     name: Unit Testing
+    # service container is used to connect to databases, web services etc like a test database seperate from the production database
+    # https://docs.github.com/en/actions/tutorials/use-containerized-services/use-docker-service-containers
+    # to utilize a service container, we must specify the image for the docker image
+    # docker host would be the Github runner OS, like ubuntu, windows etc. 
+    # need to map the port of the service container to the docker host. such as ports: 12345:27017 would mean the port 27017 of the service container is mapped to the docker host on 12345
+    # any step defined under the job will have access to the service container via the localhost port 12345 as all the steps run on the host
+    
+    services:
+      mongo-db:
+        image: malla1949/mongo-db:non-prod
+        ports:
+          - 27017:27017
+
+    env:
+      MONGO_URI: 'mongodb://localhost:27017/superData'  #add port 27017
+      MONGO_USERNAME: non-prod-user
+      MONGO_PASSWORD: non-prod-password
+
     strategy:
       matrix:                                              # use of matrix
         nodejs_version: [18, 19, 20]
@@ -172,4 +190,11 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/solar-system:${{github.sha}}
 
           
-       
+
+
+
+
+          # job container is used to run an entire job within a container.
+          # for example when the default Github ubuntu runner is preinstalled with software whose version needs to change.
+          # we can manually install a new nodejs version on the runner for example, but you dont want each time the runner runs to keep installing the specified nodejs version etc to save github action time
+          
