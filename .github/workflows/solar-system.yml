@@ -23,7 +23,7 @@ jobs:
     
     services:
       mongo-db:
-        image: malla1949/mongo-db:non-prod
+        image: malla1949/mongo-db:non-prod      # image of a test mongodb image from dockerhub
         ports:
           - 27017:27017
 
@@ -77,15 +77,46 @@ jobs:
 
   code-coverage:
     name: Code Coverage
+    # job container is used to run an entire job within a container.
+    # for example when the default Github ubuntu runner is preinstalled with software whose version needs to change.
+    # we can manually install a new nodejs version on the runner for example, but you dont want each time the runner runs to keep installing the specified nodejs version etc to save github action time
+
+    # also using service container described in above steps
+    # as job is running both job and service containers, a container to container communication is required. 
+    # https://docs.github.com/en/actions/tutorials/use-containerized-services/create-postgresql-service-containers#running-jobs-in-containers
+
+    container: 
+      image: node:18
+    services:
+      mongo-db:
+        image: siddharth67/mongo-db:non-prod   # change localhost to mongo here/ (name of container is mongo as described in options)
+        options: 
+          --name mongo
+           
+        # Docker containers on the same user-defined bridge network expose all ports to each other, so you don't need to map any of the service container ports to the Docker host.
+        #You can access the service container from the job container using the label you configure in the workflow.
+        # therefore no need for the below all ports are available to each other, use label instead:
+        # ports:
+        #   - 27017:27017
+
+    env:
+      MONGO_URI: 'mongodb://mongo:27017/superData'
+      MONGO_USERNAME: non-prod-user
+      MONGO_PASSWORD: non-prod-password
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
 
-      - name: Setup NodeJS Version - 18
-        uses: actions/setup-node@v7
-        with:
-          node-version: 18
+
+
+      # this step is no longer needed as we running the jobs in container with nodejs installed already
+      # - name: Setup NodeJS Version - 18
+      #   uses: actions/setup-node@v7
+      #   with:
+      #     node-version: 18
+
       # this step is to avoid having to install the dependecies everytime during NPM install
       # https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching
       - name: Cache NPM dependencies
@@ -194,7 +225,5 @@ jobs:
 
 
 
-          # job container is used to run an entire job within a container.
-          # for example when the default Github ubuntu runner is preinstalled with software whose version needs to change.
-          # we can manually install a new nodejs version on the runner for example, but you dont want each time the runner runs to keep installing the specified nodejs version etc to save github action time
+
           
