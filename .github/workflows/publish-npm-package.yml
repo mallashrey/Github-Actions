@@ -1,0 +1,62 @@
+ # push node packages to npm registry
+ # https://docs.github.com/en/actions/tutorials/publish-packages/publish-nodejs-packages
+ # need to update the name and version fields in the package.json file to create a unique identifier that registries use to link your package to a registry. 
+ # need to have a .npmrc. this file determines how npm behaves when managing packages and dependencies for node.js projects
+ # Need to modify the .npmrc file to specify the registry from where npm should fetch or publish the packages to
+ # And we will also use this to store the authentication tokens or creds for the private registries.
+ # no need to manually create the .npmrc file, when we use the "setup-node" action. It will create a local .npmrc file on the runner with default registry and scope which we can then modify.background: 
+ # when using the "setup-node" action, need to use registry-url to change default registry url to https://npm.pkg.github.com (github package registry) and use Github_token to authenticate
+
+ # An npm package is reusable JavaScript/Node.js code that other projects can install from a registry and use through the functions it exports.
+ # npm packages let other projects install and use the functionality you deliberately export, without cloning your complete repository.
+ # So if I have any functions in a repo, If i publish to npm registry and another user downloads the package, they can use my functions defined in this repo
+ # eg:
+#  # // planet.js
+# function getPlanet(name) {
+#   return `The selected planet is ${name}`;
+# }
+
+# module.exports = getPlanet;
+
+#  # After publishing it, another developer installs it:
+
+# npm install @mallashrey/solar-system
+
+# Then uses my exported function:
+
+# const getPlanet = require('@mallashrey/solar-system')
+
+# console.log(getPlanet("Mars"));
+
+name: Publish Package to GitHub NPM Registry
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-package:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v7
+
+      - name: Setup NodeJS
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20.x'
+          registry-url: https://npm.pkg.github.com
+          scope: '@mallashrey'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Publish Package
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

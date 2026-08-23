@@ -166,9 +166,10 @@ jobs:
         with: 
           context: .                         # this is the path to the docker file. In our case its in the root dir
           push: true
-          # using the tag as the docker image identifier
+          # using the tag as the docker image identifier. pushes the docker image to docker and to github container registry under packages
           tags: |
             ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}   
             ghcr.io/${{ github.repository_owner }}/solar-system:${{github.sha}}
 
           
+       
