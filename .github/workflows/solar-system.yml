@@ -220,7 +220,57 @@ jobs:
             ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}   
             ghcr.io/${{ github.repository_owner }}/solar-system:${{github.sha}}
 
+
+
+  dev-deploy:
+    needs: docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Install kubectl CLI
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.26.0'
+
+      - name: Set Kubeconfig File
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - name: Fetch Kubernetes Cluster Details
+        run: |
+          kubectl version --short
+          echo "--------------------------------------------------"
+          kubectl get nodes
           
+      - name: Save Nginx Ingress Controller IP as a GitHub Environment Variable
+          # github env is for setting sth as a environment variable that other jobs and steps can use. in this case IngressIP is stored as INGRESS_IP under GITHUB_ENV which is later used
+          # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-environment-variable
+        run: |
+          echo "INGRESS_IP=$(kubectl -n ingress-nginx get services ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" >> "$GITHUB_ENV"
+
+      - name: Replace Token in Manifest Files
+        # this is to replace the token in kuberenetes/deployment/deployment.yml _{_REPLICAS_}_ etc
+        # https://github.com/marketplace/actions/replace-tokens
+        uses: cschleiden/replace-tokens@v1
+        with:
+          tokenPrefix: '_{_'
+          tokenSuffix: '_}_'
+          files: '["kubernetes/development/*.yaml"]'  # path to the yaml files for kubernetes
+        env:
+          NAMESPACE: ${{ vars.NAMESPACE }}
+          REPLICAS: ${{ vars.REPLICAS }}
+          IMAGE: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+          INGRESS_IP: ${{ env.INGRESS_IP }}           # use of GITHUB_ENV from above
+
+      
+      - name: Check files
+        run: | 
+          cat kubernetes/development/*.yaml
 
 
 
