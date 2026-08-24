@@ -248,7 +248,7 @@ jobs:
           kubectl get nodes
           
       - name: Save Nginx Ingress Controller IP as a GitHub Environment Variable
-          # github env is for setting sth as a environment variable that other jobs and steps can use. in this case IngressIP is stored as INGRESS_IP under GITHUB_ENV which is later used
+          # github env is for setting sth as a environment variable from a job step, that other jobs and steps can use. in this case IngressIP is stored as INGRESS_IP under GITHUB_ENV which is later used
           # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-environment-variable
         run: |
           echo "INGRESS_IP=$(kubectl -n ingress-nginx get services ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" >> "$GITHUB_ENV"
@@ -271,6 +271,27 @@ jobs:
       - name: Check files
         run: | 
           cat kubernetes/development/*.yaml
+
+
+        #this step is needed before deploying to kubernetes. this is because the deployment.yml kubernetes file requires these secrets
+      - name: Create MongoDB Secret
+        run: |
+          kubectl -n ${{ vars.NAMESPACE }} create secret generic mongo-db-creds \
+            --from-literal=MONGO_URI=${{ env.MONGO_URI }} \
+            --from-literal=MONGO_USERNAME=${{ vars.MONGO_USERNAME }} \
+            --from-literal=MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }} \
+            --save-config \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+      - name: Deploy to dev env
+        run: |
+          kubectl apply -f kubernetes/development
+
+
+    
+
+
 
 
 
