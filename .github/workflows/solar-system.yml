@@ -224,8 +224,15 @@ jobs:
 
   dev-deploy:
     needs: docker
+    # deploy to development environment
+    environment: 
+      name: development
+      url: https://${{ steps.setup-ingress-host-address.outputs.APP_INGRESS_HOST }}
     runs-on: ubuntu-latest
-
+    outputs: 
+      APP_INGRESS_URL: ${{ steps.setup-ingress-host-address.outputs.APP_INGRESS_HOST }}   # this is for the job to job pass of outputs for ingress in "Deploy to dev" env step
+      # https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs
+      # once the outputs are set at the job level, I can use them in other jobs
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -285,10 +292,119 @@ jobs:
             -o yaml | kubectl apply -f -
 
       - name: Deploy to dev env
+        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
         run: |
           kubectl apply -f kubernetes/development
 
+  dev-integration-testing:
+    # basic integration testing
+    name: Dev Integration Testing
+    needs: dev-deploy
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: Test URL Output using CURL and JQ
+        env:
+          URL: ${{ needs.dev-deploy.outputs.APP_INGRESS_URL }} # job to job output sharing for the ingress IP. need to do this as the IP is dynamic
+          # https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs
+        run: |
+          echo $URL
+          echo "--------------------------------------------------"
+          curl https://$URL/live -s -k | jq -r .status | grep -i live
+
+
+
+
+  # production
+  prod-deploy:
+    needs: dev-integration-testing
+    # deploy to production environment
+    environment: 
+      name: production
+      url: https://${{ steps.setup-ingress-host-address.outputs.APP_INGRESS_HOST }}
+    runs-on: ubuntu-latest
+    outputs: 
+      APP_INGRESS_URL: ${{ steps.setup-ingress-host-address.outputs.APP_INGRESS_HOST }}   # this is for the job to job pass of outputs for ingress in "Deploy to dev" env step
+      # https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs
+      # once the outputs are set at the job level, I can use them in other jobs
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Install kubectl CLI
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.26.0'
+
+      - name: Set Kubeconfig File
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+
+      - name: Fetch Kubernetes Cluster Details
+        run: |
+          kubectl version --short
+          echo "--------------------------------------------------"
+          kubectl get nodes
+          
+      - name: Save Nginx Ingress Controller IP as a GitHub Environment Variable
+          # github env is for setting sth as a environment variable from a job step, that other jobs and steps can use. in this case IngressIP is stored as INGRESS_IP under GITHUB_ENV which is later used
+          # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-environment-variable
+        run: |
+          echo "INGRESS_IP=$(kubectl -n ingress-nginx get services ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" >> "$GITHUB_ENV"
+
+      - name: Replace Token in Manifest Files
+        # this is to replace the token in kuberenetes/deployment/deployment.yml _{_REPLICAS_}_ etc
+        # https://github.com/marketplace/actions/replace-tokens
+        uses: cschleiden/replace-tokens@v1
+        with:
+          tokenPrefix: '_{_'
+          tokenSuffix: '_}_'
+          files: '["kubernetes/production/*.yaml"]'  # path to the yaml files for kubernetes
+        env:
+          NAMESPACE: ${{ vars.NAMESPACE }}
+          REPLICAS: ${{ vars.REPLICAS }}
+          IMAGE: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+          INGRESS_IP: ${{ env.INGRESS_IP }}           # use of GITHUB_ENV from above
+
+      
+      - name: Check files
+        run: | 
+          cat kubernetes/production/*.yaml
+
+
+        #this step is needed before deploying to kubernetes. this is because the deployment.yml kubernetes file requires these secrets
+      - name: Create MongoDB Secret
+        run: |
+          kubectl -n ${{ vars.NAMESPACE }} create secret generic mongo-db-creds \
+            --from-literal=MONGO_URI=${{ env.MONGO_URI }} \
+            --from-literal=MONGO_USERNAME=${{ vars.MONGO_USERNAME }} \
+            --from-literal=MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }} \
+            --save-config \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+      - name: Deploy to prod env
+        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
+        run: |
+          kubectl apply -f kubernetes/production
+
+  prod-integration-testing:
+    # basic integration testing
+    name: Prod Integration Testing
+    needs: prod-deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Test URL Output using CURL and JQ
+        env:
+          URL: ${{ needs.prod-deploy.outputs.APP_INGRESS_URL }} # job to job output sharing for the ingress IP. need to do this as the IP is dynamic
+          # https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/pass-job-outputs
+        run: |
+          echo $URL
+          echo "--------------------------------------------------"
+          curl https://$URL/live -s -k | jq -r .status | grep -i live
     
 
 
