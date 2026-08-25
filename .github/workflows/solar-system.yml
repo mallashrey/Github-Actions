@@ -223,6 +223,7 @@ jobs:
 
 
   dev-deploy:
+    if: contains(github.ref, 'feature/')
     needs: docker
     # deploy to development environment
     environment: 
@@ -297,6 +298,7 @@ jobs:
           kubectl apply -f kubernetes/development
 
   dev-integration-testing:
+    if: contains(github.ref, 'feature/')
     # basic integration testing
     name: Dev Integration Testing
     needs: dev-deploy
@@ -317,7 +319,8 @@ jobs:
 
   # production
   prod-deploy:
-    needs: dev-integration-testing
+    if: github.ref == 'refs/heads/main'
+    needs: docker
     # deploy to production environment
     environment: 
       name: production
@@ -391,6 +394,7 @@ jobs:
           kubectl apply -f kubernetes/production
 
   prod-integration-testing:
+    if: github.ref == 'refs/heads/main'
     # basic integration testing
     name: Prod Integration Testing
     needs: prod-deploy
