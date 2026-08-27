@@ -1,3 +1,10 @@
+Project Origin and Attribution
+
+The initial Solar System application source code used in this project was obtained from the sidd-harth/solar-system repository.
+
+This repository builds upon that application as a practical learning project for implementing and demonstrating GitHub Actions, CI/CD workflows, automated testing, code coverage, Docker image creation, security scanning, package publishing, and Kubernetes deployment.
+
+
 # NodeJS Application 
   
 A simple HTML+MongoDB+NodeJS project to display planets.
