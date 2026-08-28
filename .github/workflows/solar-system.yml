@@ -293,14 +293,13 @@ jobs:
             -o yaml | kubectl apply -f -
 
       - name: Deploy to dev env
-        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
         run: |
           kubectl apply -f kubernetes/development
       
       - name: Set App Ingress Host URL
-        id: set-ingress-host-address
+        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
         run: |
-          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')" >> "$GITHUB_OUTPUT"
+          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')"
 
   dev-integration-testing:
     if: contains(github.ref, 'feature/')
@@ -393,15 +392,14 @@ jobs:
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
-      - name: Deploy to prod env
-        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
+      - name: Deploy to prod env 
         run: |
           kubectl apply -f kubernetes/production
 
       - name: Set App Ingress Host URL
-        id: set-ingress-host-address
+        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
         run: |
-          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')" >> "$GITHUB_OUTPUT"    
+          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')"   
 
   prod-integration-testing:
     if: github.ref == 'refs/heads/main'
