@@ -6,6 +6,9 @@ on:
    branches:
     - main
     - 'feature/*'
+  pull_request:
+    branches:
+      - main
 env:
   MONGO_URI: "mongodb+srv://supercluster.d83jj.mongodb.net/superData"  #this is to pass the env to the apptest.js during unit testing job as that job calls apptest.js which has a field that passes on the env variables.
   MONGO_USERNAME: ${{ vars.MONGO_USERNAME }}
@@ -223,6 +226,7 @@ jobs:
 
 
   dev-deploy:
+    if: contains(github.ref, 'feature/')
     needs: docker
     # deploy to development environment
     environment: 
@@ -292,11 +296,18 @@ jobs:
             -o yaml | kubectl apply -f -
 
       - name: Deploy to dev env
-        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
         run: |
           kubectl apply -f kubernetes/development
+      
+      - name: Set App Ingress Host URL
+        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
+        #without >> "$GITHUB_OUTPUT", the output is not set and the job will fail so need >> ...
+        run: |
+          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')" >> "$GITHUB_OUTPUT"    
+          
 
   dev-integration-testing:
+    if: contains(github.ref, 'feature/')
     # basic integration testing
     name: Dev Integration Testing
     needs: dev-deploy
@@ -317,7 +328,8 @@ jobs:
 
   # production
   prod-deploy:
-    needs: dev-integration-testing
+    if: github.ref == 'refs/heads/main'
+    needs: docker
     # deploy to production environment
     environment: 
       name: production
@@ -385,12 +397,18 @@ jobs:
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
-      - name: Deploy to prod env
-        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
+      - name: Deploy to prod env 
         run: |
           kubectl apply -f kubernetes/production
 
+      - name: Set App Ingress Host URL
+        id: setup-ingress-host-address  
+        #without >> "$GITHUB_OUTPUT", the output is not set and the job will fail so need >> ...   # this id is used for setting up a job to job pass of outputs 
+        run: |
+          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')" >> "$GITHUB_OUTPUT"    
+
   prod-integration-testing:
+    if: github.ref == 'refs/heads/main'
     # basic integration testing
     name: Prod Integration Testing
     needs: prod-deploy
