@@ -6,6 +6,9 @@ on:
    branches:
     - main
     - 'feature/*'
+  pull_request:
+    branches:
+      - main
 env:
   MONGO_URI: "mongodb+srv://supercluster.d83jj.mongodb.net/superData"  #this is to pass the env to the apptest.js during unit testing job as that job calls apptest.js which has a field that passes on the env variables.
   MONGO_USERNAME: ${{ vars.MONGO_USERNAME }}
@@ -298,8 +301,10 @@ jobs:
       
       - name: Set App Ingress Host URL
         id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
+        #without >> "$GITHUB_OUTPUT", the output is not set and the job will fail so need >> ...
         run: |
           echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')" >> "$GITHUB_OUTPUT"    
+          
 
   dev-integration-testing:
     if: contains(github.ref, 'feature/')
@@ -397,7 +402,8 @@ jobs:
           kubectl apply -f kubernetes/production
 
       - name: Set App Ingress Host URL
-        id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
+        id: setup-ingress-host-address  
+        #without >> "$GITHUB_OUTPUT", the output is not set and the job will fail so need >> ...   # this id is used for setting up a job to job pass of outputs 
         run: |
           echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')" >> "$GITHUB_OUTPUT"    
 
