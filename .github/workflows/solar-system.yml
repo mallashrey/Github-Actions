@@ -299,7 +299,7 @@ jobs:
       - name: Set App Ingress Host URL
         id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
         run: |
-          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')"
+          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')" >> "$GITHUB_OUTPUT"    
 
   dev-integration-testing:
     if: contains(github.ref, 'feature/')
@@ -399,7 +399,7 @@ jobs:
       - name: Set App Ingress Host URL
         id: setup-ingress-host-address         # this id is used for setting up a job to job pass of outputs 
         run: |
-          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')"   
+          echo "APP_INGRESS_HOST=$(kubectl -n ${{ vars.NAMESPACE }} get ingress -o jsonpath='{.items[0].spec.tls[0].hosts[0]}')" >> "$GITHUB_OUTPUT"    
 
   prod-integration-testing:
     if: github.ref == 'refs/heads/main'
